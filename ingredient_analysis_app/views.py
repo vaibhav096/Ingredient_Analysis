@@ -99,6 +99,15 @@ def analyze_ingredients(request):
 
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
+def history(request):
+    # Retrieve all analyses related to the logged-in user
+    user_analyses = IngredientAnalysis.objects.filter(user=request.user).order_by('-timestamp')
+    return render(request, 'history.html', {'user_analyses': user_analyses})
+
+def analysis_detail(request, analysis_id):
+    analysis = IngredientAnalysis.objects.get(id=analysis_id, user=request.user)
+    return render(request, 'analysis_detail.html', {'analysis': analysis})
+
 def register(request):
     if request.method == 'POST':
         username = request.POST['username']
