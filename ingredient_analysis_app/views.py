@@ -25,7 +25,7 @@ pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tessera
 # Set your environment variables (these should be stored securely)
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_API_KEY"] = "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"
-os.environ["GROQ_API_KEY"] = "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"
+os.environ["GROQ_API_KEY"] = "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"
 
 # Initialize your model
 model = ChatGroq(model="llama3-8b-8192")
