@@ -24,7 +24,8 @@ pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tessera
 
 # Set your environment variables (these should be stored securely)
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
-os.environ["LANGCHAIN_API_KEY"] = "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"
+# os.environ["LANGCHAIN_API_KEY"] = "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"
+os.environ["LANGCHAIN_API_KEY"] = "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"
 os.environ["GROQ_API_KEY"] = "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"
 
 # Initialize your model
@@ -68,20 +69,24 @@ def analyze_ingredients(request):
             img = np.array(img)
 
             # Convert the image to grayscale and preprocess it for OCR
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-            kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
-            sharpened = cv2.filter2D(blurred, -1, kernel)
-            binary = cv2.adaptiveThreshold(sharpened, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+            # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            # blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+            # kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+            # sharpened = cv2.filter2D(blurred, -1, kernel)
+            # binary = cv2.adaptiveThreshold(sharpened, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
 
-            # Use Tesseract to extract text from the image
-            custom_config = r'--oem 3 --psm 6'
-            extracted_text = pytesseract.image_to_string(binary, config=custom_config)
+            # # Use Tesseract to extract text from the image
+            # custom_config = r'--oem 3 --psm 6'
+            # extracted_text = pytesseract.image_to_string(binary, config=custom_config)
+
+            import easyocr
+            reader = easyocr.Reader(['en'])
+            results = reader.readtext(img)
 
             # Generate LLM analysis
             chain = prompt_template | model | parser
             llm_response = chain.invoke({
-                "list_of_ingredients": extracted_text,
+                "list_of_ingredients": results,
                 "category": category
             })
 
