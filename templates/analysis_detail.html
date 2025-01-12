@@ -29,7 +29,7 @@
             <p class="text-sm text-gray-600">Analyzed on: {{ analysis.timestamp|date:"F j, Y, g:i a" }}</p>
             <div class="mt-4">
                 <h3 class="text-lg font-semibold">Result:</h3>
-                <p>{{ analysis.result }}</p>
+                <p>{{ analysis.result|safe}}</p>
             </div>
             
         </div>

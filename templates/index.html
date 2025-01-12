@@ -109,35 +109,50 @@
             const ingredientImage = document.getElementById('ingredientImage').files[0];
             const productCategory = document.getElementById('productCategory').value;
             const analysisResult = document.getElementById('analysisResult');
-
+    
             if (ingredientImage && productCategory) {
+                // Show loading circle
                 document.getElementById('loading-circle').style.display = 'block';
                 analysisResult.innerHTML = ''; // Clear previous content
-
+    
                 const formData = new FormData();
                 formData.append('image', ingredientImage);
                 formData.append('category', productCategory);
-
+    
                 try {
                     const response = await fetch('/analyze', {
                         method: 'POST',
                         body: formData,
                     });
-
+    
                     const data = await response.json();
-
-                    analysisResult.innerHTML = data.result;
-
+    
+                    // Render response with proper HTML formatting
+                    if (data.result) {
+                        const formattedResult = data.result
+                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold for headings
+                            .replace(/(\d+\.)\s([A-Za-z\s]+):/g, '<h3>$1 $2</h3>') // For ingredient names
+                            .replace(/\*(.*?)\*/g, '<ul><li>$1</li></ul>') // Bullet points wrapped in <ul> and <li>
+                            .replace(/\n/g, '<br>'); // Line breaks
+    
+                        // Insert formatted HTML into the page
+                        analysisResult.innerHTML = `<div class="prose max-w-none">${formattedResult}</div>`;
+                    } else {
+                        analysisResult.innerHTML = `<p class="text-red-500">No analysis result available. Please try again.</p>`;
+                    }
                 } catch (error) {
                     console.error("Error occurred:", error);
                     alert("Something went wrong. Please try again later.");
                 }
-
+    
+                // Hide loading circle
                 document.getElementById('loading-circle').style.display = 'none';
             } else {
                 alert("Please upload an image and enter a product category.");
             }
         });
     </script>
+    
+    
 </body>
 </html>

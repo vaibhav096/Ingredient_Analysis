@@ -34,7 +34,10 @@
                     <div class="border border-gray-300 p-4 rounded-lg">
                         <h3 class="text-lg font-semibold">Category: {{ analysis.category }}</h3>
                         <p class="text-sm text-gray-600">Analyzed on: {{ analysis.timestamp|date:"F j, Y, g:i a" }}</p>
-                        <p>{{ analysis.result|truncatechars:100 }}</p>
+                        <div class="text-sm text-gray-700">
+                            <!-- Render formatted result -->
+                            <p>{{ analysis.result|safe|truncatechars:100 }}</p>
+                        </div>
                         <a href="{% url 'analysis_detail' analysis.id %}" class="text-blue-600 hover:underline">View Full Analysis</a>
                     </div>
                     {% empty %}
@@ -47,9 +50,5 @@
         </div>
     </div>
 
-    <!-- <footer class="text-center p-4 text-black mt-6"> 
-        Powered by <a href="https://github.com/vaibhav096" class="">Mr. Vaibhav Jadhav</a>
-    </footer> -->
-    
 </body>
 </html>

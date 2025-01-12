@@ -15,10 +15,11 @@ import pytesseract
 import cv2
 import numpy as np
 import os
+import re
 from langchain_groq import ChatGroq
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-
+# from django.utils.html import format_html
 # Specify the full path to the Tesseract executable
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
@@ -57,6 +58,8 @@ prompt_template = ChatPromptTemplate.from_messages([("system", system_template)]
 def home(request):
     return render(request,'index.html')
 
+
+
 @csrf_exempt  # Temporarily disable CSRF protection for simplicity; enable it in production
 def analyze_ingredients(request):
     if request.method == 'POST':
@@ -90,15 +93,28 @@ def analyze_ingredients(request):
                 "category": category
             })
 
+            # print(llm_response)
+            def format_html(llm_response):
+    
+                formatted_response = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', llm_response)
+                # Convert *text* to <li>text</li>
+                formatted_response = re.sub(r'\*(.*?)\*', r'<li>\1</li>', formatted_response)
+                # Replace newlines (\n) with <br> for line breaks
+                formatted_response = formatted_response.replace('\n', '<br>')
+                return formatted_response
+
+            formatted_response = format_html(llm_response)
+            print(formatted_response)
             # Save the result to the database
             analysis = IngredientAnalysis.objects.create(
                 user=request.user,
                 category=category,
-                result=llm_response
+                result=formatted_response
             )
-
+            
+            analysis.save()
             # Return the result as JSON
-            return JsonResponse({'result': llm_response})
+            return JsonResponse({'result': formatted_response})
 
         return JsonResponse({'error': 'Invalid input'}, status=400)
 
