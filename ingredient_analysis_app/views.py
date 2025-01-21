@@ -19,22 +19,26 @@ import re
 from langchain_groq import ChatGroq
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-# from django.utils.html import format_html
-# Specify the full path to the Tesseract executable
+
+from dotenv import load_dotenv
+load_dotenv()
+import easyocr
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # Set your environment variables (these should be stored securely)
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 # os.environ["LANGCHAIN_API_KEY"] = "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"
-os.environ["LANGCHAIN_API_KEY"] = "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"
-os.environ["GROQ_API_KEY"] = "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"
+os.environ["LANGCHAIN_API_KEY"] = os.getenv('LANGCHAIN_API_KEY')
+os.environ["GROQ_API_KEY"] =  os.getenv('GROQ_API_KEY')
 
 # Initialize your model
 model = ChatGroq(model="llama3-8b-8192")
 parser = StrOutputParser()
 
 # Create the prompt template
-system_template = '''I am developing a model to analyze the ingredients of various products and predict their effects on the human body. The goal is to understand how these ingredients impact health, identify potential risks, and suggest healthier alternatives. Given a product's ingredient list as follows: {list_of_ingredients} and the product category: {category}, provide a detailed analysis including the following:
+system_template = '''I am developing a model to analyze the ingredients of various products and predict their effects on the human body.
+The goal is to understand how these ingredients impact health, identify potential risks, and suggest healthier alternatives. 
+Given a product's ingredient list as follows: {list_of_ingredients} and the product category: {category}, provide a detailed analysis including the following:
 
 Ingredient Analysis:
 - Describe its common uses.
@@ -46,8 +50,12 @@ Health Impact Prediction:
 - Compare ingredient quantities with recommended safety limits.
 
 Healthier Alternatives:
-- Suggest safer or healthier alternatives for each harmful ingredient.
+- Suggest safer or healthier alternatives for product .
 - Explain why these alternatives are better for health.
+
+Summary:
+-provide overall result as it is not good for any specific allergy or good for all types of peoples
+-provide name of product if have in database
 
 Make it concise, focusing on the most important details.'''
 
@@ -70,19 +78,8 @@ def analyze_ingredients(request):
             # Read the uploaded image file
             img = Image.open(image)
             img = np.array(img)
-
-            # Convert the image to grayscale and preprocess it for OCR
-            # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            # blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-            # kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
-            # sharpened = cv2.filter2D(blurred, -1, kernel)
-            # binary = cv2.adaptiveThreshold(sharpened, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-
-            # # Use Tesseract to extract text from the image
-            # custom_config = r'--oem 3 --psm 6'
-            # extracted_text = pytesseract.image_to_string(binary, config=custom_config)
-
-            import easyocr
+            
+            
             reader = easyocr.Reader(['en'])
             results = reader.readtext(img)
 
@@ -104,7 +101,7 @@ def analyze_ingredients(request):
                 return formatted_response
 
             formatted_response = format_html(llm_response)
-            print(formatted_response)
+            # print(formatted_response)
             # Save the result to the database
             analysis = IngredientAnalysis.objects.create(
                 user=request.user,

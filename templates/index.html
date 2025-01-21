@@ -55,7 +55,7 @@
         </div>
         <div>
             <a href="#" class="text-white hover:underline mx-4">Welcome {{ user.username }}</a>
-            <a href="/history" class="text-white hover:underline mx-4">Analysis History</a>
+            <a href="history" class="text-white hover:underline mx-4">Analysis History</a>
             <a href="logout" class="text-white hover:underline">Logout</a>
         </div>
     </nav>
@@ -130,12 +130,7 @@
                     // Render response with proper HTML formatting
                     if (data.result) {
                         const formattedResult = data.result
-                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold for headings
-                            .replace(/(\d+\.)\s([A-Za-z\s]+):/g, '<h3>$1 $2</h3>') // For ingredient names
-                            .replace(/\*(.*?)\*/g, '<ul><li>$1</li></ul>') // Bullet points wrapped in <ul> and <li>
-                            .replace(/\n/g, '<br>'); // Line breaks
-    
-                        // Insert formatted HTML into the page
+                        
                         analysisResult.innerHTML = `<div class="prose max-w-none">${formattedResult}</div>`;
                     } else {
                         analysisResult.innerHTML = `<p class="text-red-500">No analysis result available. Please try again.</p>`;
