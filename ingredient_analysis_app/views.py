@@ -19,11 +19,11 @@ import re
 from langchain_groq import ChatGroq
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-
-from dotenv import load_dotenv
-load_dotenv()
-import easyocr
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+from easyocr import Reader
+import requests
+# from django.utils.html import format_html
+# Specify the full path to the Tesseract executable
+# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # Set your environment variables (these should be stored securely)
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
@@ -62,11 +62,12 @@ Make it concise, focusing on the most important details.'''
 prompt_template = ChatPromptTemplate.from_messages([("system", system_template)])
 
  # Ensure the user is logged in
-@login_required 
 def home(request):
-    return render(request,'index.html')
+    return render(request,'home.html')
 
-
+@login_required
+def upload(request):
+    return render(request, 'upload.html')
 
 @csrf_exempt  # Temporarily disable CSRF protection for simplicity; enable it in production
 def analyze_ingredients(request):
@@ -76,12 +77,34 @@ def analyze_ingredients(request):
 
         if image and category:
             # Read the uploaded image file
-            img = Image.open(image)
-            img = np.array(img)
-            
-            
-            reader = easyocr.Reader(['en'])
-            results = reader.readtext(img)
+            # img = Image.open(image)
+            # img = np.array(img)
+
+            # Convert the image to grayscale and preprocess it for OCR
+            # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            # blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+            # kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+            # sharpened = cv2.filter2D(blurred, -1, kernel)
+            # binary = cv2.adaptiveThreshold(sharpened, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+
+            # # Use Tesseract to extract text from the image
+            # custom_config = r'--oem 3 --psm 6'
+            # extracted_text = pytesseract.image_to_string(binary, config=custom_config)
+
+            # reader = Reader(['en'])
+            # results = reader.readtext(img)
+            url = 'https://api.ocr.space/parse/image'
+            payload = {
+                'apikey': 'K85352834688957',  # Replace with 'helloworld' for a free tier
+                'language': 'eng',
+            }
+
+            # File to OCR
+            files = {'file': image}
+
+            response = requests.post(url, data=payload, files=files)
+            results = response.json()
+
 
             # Generate LLM analysis
             chain = prompt_template | model | parser
@@ -98,6 +121,7 @@ def analyze_ingredients(request):
                 formatted_response = re.sub(r'\*(.*?)\*', r'<li>\1</li>', formatted_response)
                 # Replace newlines (\n) with <br> for line breaks
                 formatted_response = formatted_response.replace('\n', '<br>')
+                
                 return formatted_response
 
             formatted_response = format_html(llm_response)
@@ -158,7 +182,7 @@ def user_login(request):
 
         if user is not None:
             login(request, user)
-            return redirect('home')
+            return redirect('upload')
         else:
             return render(request, 'login.html', {'error_message': 'Invalid credentials'})
 
@@ -166,4 +190,4 @@ def user_login(request):
 
 def user_logout(request):
     logout(request)
-    return redirect('login')
+    return redirect('home')
