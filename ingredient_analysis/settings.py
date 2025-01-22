@@ -123,5 +123,6 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = 'login'  # Redirects to the login view if not authenticated
-LOGIN_REDIRECT_URL = 'home'  # Redirects to the home page after login
-LOGOUT_REDIRECT_URL = 'login'  # Redirects to the login page after logout
+LOGIN_REDIRECT_URL = 'upload'  # Redirects to the home page after login
+LOGOUT_REDIRECT_URL = 'home'  # Redirects to the login page after logout
+STATIC_ROOT = BASE_DIR / 'staticfiles'
