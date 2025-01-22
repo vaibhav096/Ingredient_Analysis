@@ -25,6 +25,10 @@ import requests
 # Specify the full path to the Tesseract executable
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 # Set your environment variables (these should be stored securely)
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 # os.environ["LANGCHAIN_API_KEY"] = "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"
