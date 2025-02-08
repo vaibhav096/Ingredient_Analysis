@@ -109,8 +109,12 @@ def analyze_ingredients(request):
             ocr_reader = OCRReader()
             results = ocr_reader.read_text(img)
             text_only = [item[1] for item in results]
-            allergies = request.user.medicalhistory.allergies.split(',')
-            diseases = request.user.medicalhistory.diseases.split(',')
+            try:
+                allergies = request.user.medicalhistory.allergies.split(',')
+                diseases = request.user.medicalhistory.diseases.split(',')
+            except:
+                allergies="No allergyg"
+                diseases="No disease"
             
             chain = prompt_template | model | parser
             llm_response = chain.invoke(
