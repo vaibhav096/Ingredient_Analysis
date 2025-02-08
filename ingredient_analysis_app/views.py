@@ -1,4 +1,8 @@
 # ingredient_analysis_app/views.py
+# import pytesseract
+# import cv2
+# import requests
+# import re
 
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
@@ -11,187 +15,241 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from .models import IngredientAnalysis
 from PIL import Image
-import pytesseract
-import cv2
 import numpy as np
 import os
-import re
 from langchain_groq import ChatGroq
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from easyocr import Reader
-import requests
+import easyocr
+from dotenv import load_dotenv
+load_dotenv()
+
 # from django.utils.html import format_html
 # Specify the full path to the Tesseract executable
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
-# Set your environment variables (these should be stored securely)
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
-# os.environ["LANGCHAIN_API_KEY"] = "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"
-os.environ["LANGCHAIN_API_KEY"] = os.getenv('LANGCHAIN_API_KEY')
-os.environ["GROQ_API_KEY"] =  os.getenv('GROQ_API_KEY')
+os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY")
+os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
 
 # Initialize your model
 model = ChatGroq(model="llama3-8b-8192")
 parser = StrOutputParser()
 
 # Create the prompt template
-system_template = '''I am developing a model to analyze the ingredients of various products and predict their effects on the human body.
-The goal is to understand how these ingredients impact health, identify potential risks, and suggest healthier alternatives. 
-Given a product's ingredient list as follows: {list_of_ingredients} and the product category: {category}, provide a detailed analysis including the following:
+system_template = '''As a health analysis expert, analyze {category} ingredients while considering:
+- User allergies: {allergies}
+- User medical history: {diseases}
 
-Ingredient Analysis:
-- Describe its common uses.
-- Outline its positive effects on health.
-- Highlight its negative effects and potential risks.
+1. **Key Ingredient Analysis** (Focus on 3-5 most significant):
+   For each impactful ingredient:
+   - Primary use in {category}
+   - Benefits (if any)
+   - Risks (prioritize allergy/condition conflicts)
+   - Safety status vs daily limits
 
-Health Impact Prediction:
-- Predict the cumulative health impact based on daily usage of the product.
-- Compare ingredient quantities with recommended safety limits.
+2. **Personalized Health Impact** ⚠️:
+   - Top 3 risks specific to user's profile
+   - Cumulative effect prediction based on:
+     - Frequency of use
+     - Quantity in product
+     - Medical history interactions
+     
+3. **Should Take or Not 🔍:
+   - Ingredients list which are dangerous for user's allergies
+   - Ingredients list which are dangerous for medical conditions
+   - In one word, should user take this product or not accourding to his/her health
 
-Healthier Alternatives:
-- Suggest safer or healthier alternatives for product .
-- Explain why these alternatives are better for health.
+4. **Smart Alternatives** 💡:
+   - 2-3 safer options avoiding flagged ingredients
+   - Benefits for user's specific needs
+   - Category-appropriate substitutions
 
-Summary:
--provide overall result as it is not good for any specific allergy or good for all types of peoples
--provide name of product if have in database
-
-Make it concise, focusing on the most important details.'''
+Format concisely using bullet points, warning symbols(❗), and prioritize medical-critical information. Ignore unrecognized/unimportant ingredients.'''
 
 prompt_template = ChatPromptTemplate.from_messages([("system", system_template)])
+ans = "**Ingredient Analysis:**\n\n1. **WATER**: Common use: hydration. Positive effects: essential for human body, helps regulate body temperature, and transports nutrients. Negative effects: excessive consumption can lead to water intoxication.\n2. **CARBONATED BEVERAGET**: Common use: carbonation in beverages. Positive effects: adds fizz, helps with digestion. Negative effects: can lead to bloating, gas, and stomach discomfort.\n3. **CARBONATED**: Common use: same as above. No specific health effects.\n4. **ACIDITY REGULATOR**: Common use: adjusts pH levels in foods and beverages. Positive effects: prevents spoilage, preserves food. Negative effects: can disrupt gut health, lead to digestive issues.\n5. **TANS PERMITTED NATURAL**: Common use: natural coloring agent. Positive effects: no specific health effects. Negative effects: can cause allergic reactions.\n6. **FLAVOURS**: Common use: adds taste and aroma to products. Positive effects: enhances flavor. Negative effects: can be overwhelming, disrupt digestive system.\n7. **CONTAINS NO**: Common use: labeling. No specific health effects.\n8. **CAFFEINE**: Common use: stimulant in beverages. Positive effects: improves alertness, boosts energy. Negative effects: can lead to addiction, insomnia, and increased heart rate.\n9. **PROTEIN: 0 g**: Common use: labeling. No specific health effects.\n10. **SUGAR**: Common use: sweetener. Positive effects: provides energy. Negative effects: contributes to obesity, diabetes, and tooth decay.\n\n**Health Impact Prediction:**\n\nThe cumulative health impact of daily usage of Coke is likely to be negative, considering the high sugar content, caffeine, and acidity regulator. Consuming large amounts of sugar and caffeine can lead to increased risk of chronic diseases, such as diabetes, heart disease, and certain types of cancer.\n\n**Healthier Alternatives:**\n\n1. **Infused water**: Instead of Coke, try infused water with natural flavors and no added sugars.\n2. **Herbal teas**: Herbal teas, such as peppermint or chamomile, can provide a caffeine-free alternative to Coke.\n3. **Low-calorie beverages**: Opt for low-calorie, sugar-free beverages with natural sweeteners like stevia or erythritol.\n\n**Summary:**\n\nCoke is not suitable for anyone, especially those with sugar or caffeine sensitivities. It's essential to consider individual health needs and preferences when choosing a beverage. If you're looking for a healthier alternative, consider infused water, herbal teas, or low-calorie beverages.\n\n**Product Name:** Coca-Cola (Coke)"
 
- # Ensure the user is logged in
+
+
+# Ensure the user is logged in
 def home(request):
-    return render(request,'home.html')
+    return render(request, "home.html")
+
 
 @login_required
 def upload(request):
-    return render(request, 'upload.html')
+    return render(request, "upload.html")
+
+
+class OCRReader:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(OCRReader, cls).__new__(cls, *args, **kwargs)
+            cls._instance.reader = easyocr.Reader(['en'], gpu=False)
+        return cls._instance
+
+    def read_text(self, img):
+        return self.reader.readtext(img)
+
 
 @csrf_exempt  # Temporarily disable CSRF protection for simplicity; enable it in production
 def analyze_ingredients(request):
-    if request.method == 'POST':
-        image = request.FILES.get('image')
-        category = request.POST.get('category')
+    if request.method == "POST":
+        image = request.FILES.get("image")
+        category = request.POST.get("category")
 
         if image and category:
-            # Read the uploaded image file
-            # img = Image.open(image)
-            # img = np.array(img)
+            img = Image.open(image)
+            img = np.array(img)
 
-            # Convert the image to grayscale and preprocess it for OCR
-            # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            # blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-            # kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
-            # sharpened = cv2.filter2D(blurred, -1, kernel)
-            # binary = cv2.adaptiveThreshold(sharpened, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-
-            # # Use Tesseract to extract text from the image
-            # custom_config = r'--oem 3 --psm 6'
-            # extracted_text = pytesseract.image_to_string(binary, config=custom_config)
-
-            # reader = Reader(['en'])
-            # results = reader.readtext(img)
-            url = 'https://api.ocr.space/parse/image'
-            payload = {
-                'apikey': 'K85352834688957',  # Replace with 'helloworld' for a free tier
-                'language': 'eng',
-            }
-
-            # File to OCR
-            files = {'file': image}
-
-            response = requests.post(url, data=payload, files=files)
-            results = response.json()
-
-
-            # Generate LLM analysis
-            chain = prompt_template | model | parser
-            llm_response = chain.invoke({
-                "list_of_ingredients": results,
-                "category": category
-            })
-
-            # print(llm_response)
-            def format_html(llm_response):
-    
-                formatted_response = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', llm_response)
-                # Convert *text* to <li>text</li>
-                formatted_response = re.sub(r'\*(.*?)\*', r'<li>\1</li>', formatted_response)
-                # Replace newlines (\n) with <br> for line breaks
-                formatted_response = formatted_response.replace('\n', '<br>')
-                
-                return formatted_response
-
-            formatted_response = format_html(llm_response)
-            # print(formatted_response)
-            # Save the result to the database
-            analysis = IngredientAnalysis.objects.create(
-                user=request.user,
-                category=category,
-                result=formatted_response
-            )
+            # Use the OCRReader class
+            ocr_reader = OCRReader()
+            results = ocr_reader.read_text(img)
+            text_only = [item[1] for item in results]
+            allergies = request.user.medicalhistory.allergies.split(',')
+            diseases = request.user.medicalhistory.diseases.split(',')
             
+            chain = prompt_template | model | parser
+            llm_response = chain.invoke(
+                {"list_of_ingredients": text_only, "category": category, "allergies": allergies, "diseases": diseases}
+            )
+            analysis = IngredientAnalysis.objects.create(
+                user=request.user, category=category, result=llm_response
+            )
+
             analysis.save()
             # Return the result as JSON
-            return JsonResponse({'result': formatted_response})
+            return JsonResponse({"result": llm_response})
 
-        return JsonResponse({'error': 'Invalid input'}, status=400)
+        return JsonResponse({"error": "Invalid input"}, status=400)
 
-    return JsonResponse({'error': 'Invalid request method'}, status=405)
+    return JsonResponse({"error": "Invalid request method"}, status=405)
+
 
 def history(request):
     # Retrieve all analyses related to the logged-in user
-    user_analyses = IngredientAnalysis.objects.filter(user=request.user).order_by('-timestamp')
-    return render(request, 'history.html', {'user_analyses': user_analyses})
+    user_analyses = IngredientAnalysis.objects.filter(user=request.user).order_by(
+        "-timestamp"
+    )
+    return render(request, "history.html", {"user_analyses": user_analyses})
+
 
 def analysis_detail(request, analysis_id):
     analysis = IngredientAnalysis.objects.get(id=analysis_id, user=request.user)
-    return render(request, 'analysis_detail.html', {'analysis': analysis})
+    return render(request, "analysis_detail.html", {"analysis": analysis})
+
 
 def register(request):
-    if request.method == 'POST':
-        username = request.POST['username']
-        email = request.POST['email']
-        password = request.POST['password']
-        repeat_password = request.POST['repeatPassword']
+    if request.method == "POST":
+        username = request.POST["username"]
+        email = request.POST["email"]
+        password = request.POST["password"]
+        repeat_password = request.POST["repeatPassword"]
 
         if password != repeat_password:
-            return render(request, 'register.html', {'error_message': "Passwords don't match"})
+            return render(
+                request, "register.html", {"error_message": "Passwords don't match"}
+            )
 
         if User.objects.filter(username=username).exists():
-            return render(request, 'register.html', {'error_message': "Username already taken"})
+            return render(
+                request, "register.html", {"error_message": "Username already taken"}
+            )
 
-        user = User.objects.create_user(username=username, email=email, password=password)
+        user = User.objects.create_user(
+            username=username, email=email, password=password
+        )
         user.save()
 
         login(request, user)
-        return redirect('home')
+        return redirect("check_medical")
         # messages.success(request, 'Account created successfully! Please log in.')
         # return redirect('login')
 
-    return render(request, 'register.html')
+    return render(request, "register.html")
+
 
 def user_login(request):
-    if request.method == 'POST':
-        username = request.POST['username']
-        password = request.POST['password']
+    if request.method == "POST":
+        username = request.POST["username"]
+        password = request.POST["password"]
 
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
             login(request, user)
-            return redirect('upload')
+            return redirect("check_medical")
         else:
-            return render(request, 'login.html', {'error_message': 'Invalid credentials'})
+            return render(
+                request, "login.html", {"error_message": "Invalid credentials"}
+            )
 
-    return render(request, 'login.html')
+    return render(request, "login.html")
+
 
 def user_logout(request):
     logout(request)
-    return redirect('home')
+    return redirect("home")
+
+
+
+# Convert the image to grayscale and preprocess it for OCR
+# gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+# blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+# kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+# sharpened = cv2.filter2D(blurred, -1, kernel)
+# binary = cv2.adaptiveThreshold(sharpened, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+
+# # Use Tesseract to extract text from the image
+# custom_config = r'--oem 3 --psm 6'
+# extracted_text = pytesseract.image_to_string(binary, config=custom_config)
+
+'''
+    url = "https://api.ocr.space/parse/image"
+    payloads = [
+        {
+            "apikey": "K85352834688957",  
+            "language": "eng",
+        },
+        {
+            "apikey": "K86276895488957", 
+            "language": "eng",
+        },
+    ]
+    payload = payloads[0]
+    files = {"file": image}
+    response = requests.post(url, data=payload, files=files)
+    results = response.json()
+
+    if results["IsErroredOnProcessing"]:
+        return JsonResponse(
+            {
+                "error": "Image size exceeds the maximum permissible file size limit of 1024 KB"
+            },
+            status=400,
+        )
+    elif (
+        results
+        == "For this API KEY only 300 concurrent connections at the same time allowed. Contact support if you need more."
+    ):
+        payloads = payloads[1]
+        response = requests.post(url, data=payload, files=files)
+        results = response.json()
+        
+        if results["IsErroredOnProcessing"]:
+            return JsonResponse(
+                {
+                    "error": "Image size exceeds the maximum permissible file size limit of 1024 KB"
+                },
+                status=400,
+            )
+        elif results == "For this API KEY only 300 concurrent connections at the same time allowed. Contact support if you need more.":
+            return JsonResponse(
+                {"error": "Image parsing is down... Try again after some time"}, status=400
+            )
+
+    # Generate LLM analysis
+'''

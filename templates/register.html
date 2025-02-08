@@ -2,20 +2,26 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    {% load static %}
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Signup</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body class="bg-gray-100 font-sans antialiased">
-    <!-- Navbar -->
-    <nav class="bg-blue-600 p-4 text-white flex justify-between">
-        <div>
-            <h1 class="text-3xl font-bold">Ingredient Analysis - Signup</h1>
-        </div>
-    </nav>
+  <body class="bg-gray-100 font-sans antialiased">
+
+        <!-- Navbar -->
+        <nav class="bg-white shadow">
+            <div class="container mx-auto px-40 py-1 flex justify-between items-center">
+                <a href="{% url 'upload' %}" class="cursor-pointer"><img src="{% static 'ingredient_analysis_app/logo.png' %}" class="w-20 h-20" /></a>
+                <div class="flex justify-center gap-8">
+                    <a href="{% url 'home' %}" class="inline-block bg-green-600 text-white py-3 px-5 rounded-3xl font-bold">Get Started</a>
+                    <a href="{% url 'login'%}" class="inline-block border border-green-600 text-green-600 py-3 px-5 font-bold rounded-3xl">Login</a>
+                </div>
+            </div>
+        </nav>
 
     <!-- Main content -->
-    <div class="flex items-center justify-center h-screen">
+    <div class="flex items-center justify-center h-screen -mt-10">
         <div class="bg-white p-8 shadow-md rounded-lg max-w-md w-full">
             <!-- Signup form -->
             <form class="space-y-4" action="{% url 'register' %}" method="post">

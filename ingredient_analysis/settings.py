@@ -38,6 +38,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'ingredient_analysis_app',
+    'medical_history',
+    'crispy_forms',  # Add this line
+    'crispy_tailwind',  # Add this line
+    'markdownify'
 ]
 
 MIDDLEWARE = [
@@ -123,6 +127,10 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = 'login'  # Redirects to the login view if not authenticated
-LOGIN_REDIRECT_URL = 'upload'  # Redirects to the home page after login
+LOGIN_REDIRECT_URL = 'check_medical'  # Redirects to the check_medical page after login
 LOGOUT_REDIRECT_URL = 'home'  # Redirects to the login page after logout
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Add crispy forms settings
+CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
+CRISPY_TEMPLATE_PACK = "tailwind"

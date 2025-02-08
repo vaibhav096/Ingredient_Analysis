@@ -6,10 +6,9 @@
             <span class="text-xl font-bold tracking-tight">Nutricheck</span>
         </a>
         <div class="flex space-x-6 items-center">
-            <a href="{% url 'upload' %}" class="text-gray-200 hover:text-white transition duration-300">Welcome {{ user.username }}</a>
+            <a href="{% url 'upload' %}" class="text-gray-200 hover:text-white transition duration-300">Welcome, {{ user.username }}</a>
             <a href="{% url 'history' %}" class="text-gray-200 hover:text-white transition duration-300">Analysis History</a>
-            <a href="{% url 'upload' %}" class="text-gray-200 hover:text-white transition duration-300">Medical History</a>
-            <a href="{% url 'upload' %}" class="text-gray-200 hover:text-white transition duration-300">Allergies</a>
+            <a href="{% url 'edit-medical' %}" class="text-gray-200 hover:text-white transition duration-300">Allergies & Conditions </a>
             <a href="{% url 'logout' %}" class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded transition duration-300">Logout</a>
         </div>
     </div>
