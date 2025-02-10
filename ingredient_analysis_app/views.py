@@ -49,17 +49,15 @@ system_template = '''As a health analysis expert, analyze {category} ingredients
    - Safety status vs daily limits
 
 2. **Personalized Health Impact** ⚠️:
-   - Top 3 risks specific to user's profile
-   - Cumulative effect prediction based on:
+   - Top 3 risks specific to user's profile :
      - Frequency of use
      - Quantity in product
      - Medical history interactions
      
 3. **Should Take or Not 🔍:
-   - Ingredients list which are dangerous for user's allergies
-   - Ingredients list which are dangerous for medical conditions
-   - In one word, should user take this product or not accourding to his/her health
-
+   - Ingredients list which are dangerous for user's allergies and conditions :
+   - In one word,Should user take this product or not based on allergy/condition : 
+   
 4. **Smart Alternatives** 💡:
    - 2-3 safer options avoiding flagged ingredients
    - Benefits for user's specific needs
