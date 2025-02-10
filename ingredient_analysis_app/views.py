@@ -37,9 +37,11 @@ model = ChatGroq(model="llama3-8b-8192")
 parser = StrOutputParser()
 
 # Create the prompt template
-system_template = '''As a health analysis expert, analyze {category} ingredients while considering:
+system_template = '''As a health analysis expert, analyze {category} ingredients while considering with STRICT adherence to:
 - User allergies: {allergies}
 - User medical history: {diseases}
+
+**Structured Analysis Framework:**
 
 1. **Key Ingredient Analysis** (Focus on 3-5 most significant):
    For each impactful ingredient:
@@ -49,17 +51,15 @@ system_template = '''As a health analysis expert, analyze {category} ingredients
    - Safety status vs daily limits
 
 2. **Personalized Health Impact** ⚠️:
-   - Top 3 risks specific to user's profile
-   - Cumulative effect prediction based on:
+   - Top 3 risks specific to user's profile :
      - Frequency of use
      - Quantity in product
      - Medical history interactions
      
 3. **Should Take or Not 🔍:
-   - Ingredients list which are dangerous for user's allergies
-   - Ingredients list which are dangerous for medical conditions
-   - In one word, should user take this product or not accourding to his/her health
-
+   - Ingredients list which are dangerous for user's allergies and conditions :
+   - Final recommendation, Should user take this product or not: 
+   
 4. **Smart Alternatives** 💡:
    - 2-3 safer options avoiding flagged ingredients
    - Benefits for user's specific needs
@@ -94,6 +94,7 @@ class OCRReader:
     def read_text(self, img):
         return self.reader.readtext(img)
 
+ocr_reader = OCRReader()
 
 @csrf_exempt  # Temporarily disable CSRF protection for simplicity; enable it in production
 def analyze_ingredients(request):
@@ -106,7 +107,6 @@ def analyze_ingredients(request):
             img = np.array(img)
 
             # Use the OCRReader class
-            ocr_reader = OCRReader()
             results = ocr_reader.read_text(img)
             text_only = [item[1] for item in results]
             try:

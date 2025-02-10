@@ -171,61 +171,84 @@
         return markdown.trim();
       }
 
-      document
-        .getElementById("analyzeButton")
-        .addEventListener("click", async () => {
-          const ingredientImage =
-            document.getElementById("ingredientImage").files[0];
-          const productCategory =
-            document.getElementById("productCategory").value;
+
+      function showClearButton() {
+        if (!document.getElementById("clearButton")) {
+          const clearButton = document.createElement("button");
+          clearButton.id = "clearButton";
+          clearButton.textContent = "Clear";
+          clearButton.className = "bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors absolute top-0 right-0 mt-2 mr-2";
+          clearButton.addEventListener("click", () => {
+        localStorage.removeItem("analysisResult");
+        document.getElementById("analysisResult").innerHTML = "";
+        clearButton.remove();
+          });
           const analysisResult = document.getElementById("analysisResult");
+          analysisResult.style.position = "relative";
+          analysisResult.appendChild(clearButton);
+        }
+      }
 
-          if (ingredientImage && productCategory) {
-            // Show loading circle
-            document.getElementById("loading-circle").style.display = "block";
-            analysisResult.innerHTML = ""; // Clear previous content
+      function analyze() {
+        const ingredientImage = document.getElementById("ingredientImage").files[0];
+        const productCategory = document.getElementById("productCategory").value;
+        const analysisResult = document.getElementById("analysisResult");
 
-            const formData = new FormData();
-            formData.append("image", ingredientImage);
-            formData.append("category", productCategory);
+        if (ingredientImage && productCategory) {
+          // Show loading circle
+          document.getElementById("loading-circle").style.display = "block";
+          analysisResult.innerHTML = ""; // Clear previous content
 
-            try {
-              const response = await fetch("/analyze", {
-                method: "POST",
-                body: formData,
-              });
+          const formData = new FormData();
+          formData.append("image", ingredientImage);
+          formData.append("category", productCategory);
 
-              const data = await response.json();
-              
-              if (data.result) {
-                const formattedResult = parseMarkdown(data.result);
-                analysisResult.innerHTML = `${formattedResult}`;
-                console.log(typeof formattedResult, ":", data.result);
-                localStorage.setItem("analysisResult", data.result);
-              } else {
-                analysisResult.innerHTML = `<p class="text-red-500">No analysis result available. Please try again.</p>`;
-              }
-            } catch (error) {
-              console.error("Error occurred:", error);
-              analysisResult.innerHTML = `<p class="text-red-500">Please try again later</p>`;
-            }
+          fetch("/analyze", {
+        method: "POST",
+        body: formData,
+          })
+          .then(response => response.json())
+          .then(data => {
+        if (data.result) {
+          const formattedResult = parseMarkdown(data.result);
+          analysisResult.innerHTML = `${formattedResult}`;
+          localStorage.setItem("analysisResult", data.result);
+          showClearButton();
+        } else {
+          analysisResult.innerHTML = `<p class="text-red-500">No analysis result available. Please try again.</p>`;
+        }
+          })
+          .catch(error => {
+        console.error("Error occurred:", error);
+        analysisResult.innerHTML = `<p class="text-red-500">Please try again later</p>`;
+          })
+          .finally(() => {
+        // Hide loading circle
+        document.getElementById("loading-circle").style.display = "none";
+          });
+        } else {
+          alert("Please upload an image and enter a product category.");
+        }
+      }
 
-            // Hide loading circle
-            document.getElementById("loading-circle").style.display = "none";
-          } else {
-            alert("Please upload again an image and enter a product category.");
-          }
-        });
+      document.getElementById("analyzeButton").addEventListener("click", analyze);
 
-        // Load cached result if available
-        document.addEventListener("DOMContentLoaded", () => {
-            const cachedResult = localStorage.getItem("analysisResult");
-            if (cachedResult) {
-                const analysisResult = document.getElementById("analysisResult");
-                const formattedResult = parseMarkdown(cachedResult);
-                analysisResult.innerHTML = `${formattedResult}`;
-            }
-        });
-    </script>
+      document.getElementById("productCategory").addEventListener("keypress", (event) => {
+        if (event.key === "Enter") {
+          analyze();
+        }
+      });
 
+      // Load cached result if available
+      document.addEventListener("DOMContentLoaded", () => {
+        const cachedResult = localStorage.getItem("analysisResult");
+        if (cachedResult) {
+          const analysisResult = document.getElementById("analysisResult");
+          const formattedResult = parseMarkdown(cachedResult);
+          analysisResult.innerHTML = `${formattedResult}`;
+          showClearButton();
+        }
+      });
+
+      </script>
 {% endblock %}
