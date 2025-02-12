@@ -5,7 +5,11 @@
 
 {% block content %}
 <div class="bg-gray-100 flex flex-col justify-center py-3 sm:px-6 lg:px-8">
-    <div class="sm:mx-auto sm:w-full sm:w-[50vw]">
+    <div class="sm:mx-auto sm:w-full sm:w-[50vw] relative">
+        <a href="{% url 'upload' %}" 
+           class="absolute top-0 right-0 mt-2 mr-2 px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-200 transition-all">
+            ⏭️ Skip
+        </a>
         <div class="bg-white py-8 px-4 shadow rounded-lg sm:px-10">
             <h2 class="mb-6 text-center text-3xl font-extrabold text-gray-900">
                 🏥 Your Health Profile
@@ -25,3 +29,5 @@
     </div>
 </div>
 {% endblock %}
+
+
