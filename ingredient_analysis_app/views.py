@@ -57,7 +57,7 @@ system_template = '''As a health analysis expert, analyze {category} ingredients
      - Medical history interactions
      
 3. **Should Take or Not 🔍:
-   - Ingredients list which are dangerous for user's allergies and conditions :
+   - Ingredients list which are dangerous for user's allergies and conditions (if any):
    - Final recommendation, Should user take this product or not: 
    
 4. **Smart Alternatives** 💡:
