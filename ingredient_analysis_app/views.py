@@ -20,7 +20,8 @@ import os
 from langchain_groq import ChatGroq
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-import easyocr
+# import easyocr
+from paddleocr import PaddleOCR
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -28,42 +29,65 @@ load_dotenv()
 # Specify the full path to the Tesseract executable
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-os.environ["LANGCHAIN_TRACING_V2"] = "true"
-os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY")
-os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
+# os.environ["LANGCHAIN_TRACING_V2"] = "true"
 
-# Initialize your model
-model = ChatGroq(model="llama3-8b-8192")
+# Lazy initialization of API keys - only validate when actually needed
+def get_api_keys():
+    # langchain_key = os.getenv("LANGCHAIN_API_KEY")
+    groq_key = os.getenv("GROQ_API_KEY")
+    
+    if not groq_key:
+        raise ValueError("GROQ_API_KEY environment variable is required")
+    
+    # if not langchain_key:
+    #     raise ValueError("LANGCHAIN_API_KEY environment variable is required")
+    
+    # os.environ["LANGCHAIN_API_KEY"] = langchain_key
+    os.environ["GROQ_API_KEY"] = groq_key
+    
+    return groq_key
+
+# Initialize model only when needed
+model = None
 parser = StrOutputParser()
 
+def get_model():
+    global model
+    if model is None:
+        get_api_keys()  # This will validate keys
+        model = ChatGroq(model="llama-3.1-8b-instant")
+    return model
+
 # Create the prompt template
-system_template = '''As a health analysis expert, analyze {category} ingredients while considering with STRICT adherence to:
+system_template = '''As a health analysis expert, analyze {category} ingredients from this list: {list_of_ingredients} while considering with STRICT adherence to:
 - User allergies: {allergies}
 - User medical history: {diseases}
 
+**IMPORTANT: Only proceed with analysis if valid ingredients are detected and category is appropriate. If no valid ingredients are found or category is incorrect, respond with: "Since no valid ingredients are detected for this category, there are no risks specific to the user's profile."**
+**Important: If the ingredients list is not proper then make use of Catageory of the product to give a generic analysis of the ingredients.**
 **Structured Analysis Framework:**
 
-1. **Key Ingredient Analysis** (Focus on 3-5 most significant):
-   For each impactful ingredient:
-   - Primary use in {category}
-   - Benefits (if any)
-   - Risks (prioritize allergy/condition conflicts)
-   - Safety status vs daily limits
+1. **Key Ingredient Analysis** (Focus on 4-5 most significant):
+    For each impactful ingredient:
+    - Primary use in {category}
+    - Benefits (if any)
+    - Risks (prioritize allergy/condition conflicts)
+    - Safety status vs daily limits
 
 2. **Personalized Health Impact** ⚠️:
-   - Top 3 risks specific to user's profile :
-     - Frequency of use
-     - Quantity in product
-     - Medical history interactions
-     
+    - Top 3 risks specific to user's profile :
+      - Frequency of use
+      - Quantity in product
+      - Medical history interactions
+      
 3. **Should Take or Not 🔍:
-   - Ingredients list which are dangerous for user's allergies and conditions (if any):
-   - Final recommendation, Should user take this product or not: 
-   
+    - Ingredients list which are dangerous for user's allergies and conditions :
+    - Final recommendation, Should user take this product or not: 
+    
 4. **Smart Alternatives** 💡:
-   - 2-3 safer options avoiding flagged ingredients
-   - Benefits for user's specific needs
-   - Category-appropriate substitutions
+    - 2-3 safer options avoiding flagged ingredients
+    - Benefits for user's specific needs
+    - Category-appropriate substitutions
 
 Format concisely using bullet points, warning symbols(❗), and prioritize medical-critical information. Ignore unrecognized/unimportant ingredients.'''
 
@@ -88,45 +112,82 @@ class OCRReader:
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
             cls._instance = super(OCRReader, cls).__new__(cls, *args, **kwargs)
-            cls._instance.reader = easyocr.Reader(['en'], gpu=False)
+            cls._instance.reader =  PaddleOCR(use_angle_cls=True, lang='en')
         return cls._instance
 
     def read_text(self, img):
-        return self.reader.readtext(img)
+        # PaddleOCR returns different format: [[[bbox], (text, confidence)]]
+        results = self.reader.ocr(img)
+        # Extract only text from PaddleOCR results
+        text_list = []
+        if results and results[0]:
+            for line in results[0]:
+                if len(line) > 1:
+                    text_list.append(line[1][0])  # line[1][0] contains the text
+        return text_list
 
 ocr_reader = OCRReader()
 
-@csrf_exempt  # Temporarily disable CSRF protection for simplicity; enable it in production
+@csrf_exempt
 def analyze_ingredients(request):
     if request.method == "POST":
         image = request.FILES.get("image")
         category = request.POST.get("category")
 
         if image and category:
-            img = Image.open(image)
-            img = np.array(img)
-
-            # Use the OCRReader class
-            results = ocr_reader.read_text(img)
-            text_only = [item[1] for item in results]
-            try:
-                allergies = request.user.medicalhistory.allergies.split(',')
-                diseases = request.user.medicalhistory.diseases.split(',')
-            except:
-                allergies="No allergy"
-                diseases="No disease"
-            
-            chain = prompt_template | model | parser
-            llm_response = chain.invoke(
-                {"list_of_ingredients": text_only, "category": category, "allergies": allergies, "diseases": diseases}
-            )
+            # Save the uploaded image
             analysis = IngredientAnalysis.objects.create(
-                user=request.user, category=category, result=llm_response
+                user=request.user, 
+                category=category, 
+                # image=image,
+                result=""  # Will be updated after processing
             )
 
-            analysis.save()
-            # Return the result as JSON
-            return JsonResponse({"result": llm_response})
+            try:
+                img = Image.open(image)
+                img = np.array(img)
+
+                # Use the OCRReader class
+                results = ocr_reader.read_text(img)
+                text_only = [item for item in results if isinstance(item, str)]
+                
+                # Add debugging
+                print(f"OCR Results: {text_only}")
+                
+                try:
+                    allergies = request.user.medicalhistory.allergies.split(',') if hasattr(request.user, 'medicalhistory') and request.user.medicalhistory.allergies else ["No allergy"]
+                    diseases = request.user.medicalhistory.diseases.split(',') if hasattr(request.user, 'medicalhistory') and request.user.medicalhistory.diseases else ["No disease"]
+                except Exception as e:
+                    print(f"Medical history error: {e}")
+                    allergies = ["No allergy"]
+                    diseases = ["No disease"]
+                
+                # Join the text list into a string for better processing
+                ingredients_text = ", ".join(text_only) if text_only else "No text detected"
+                
+                # Get model with API key validation
+                model_instance = get_model()
+                chain = prompt_template | model_instance | parser
+                llm_response = chain.invoke(
+                    {
+                        "list_of_ingredients": ingredients_text, 
+                        "category": category, 
+                        "allergies": ", ".join(allergies), 
+                        "diseases": ", ".join(diseases)
+                    }
+                )
+                
+                # Update the analysis with the result
+                analysis.result = llm_response
+                analysis.save()
+
+                # Return the result as JSON
+                return JsonResponse({"result": llm_response, "analysis_id": analysis.id})
+
+            except Exception as e:
+                print(f"Processing error: {str(e)}")  # Add debugging
+                analysis.delete()  # Clean up if processing fails
+                return JsonResponse({"error": f"Processing failed: {str(e)}"}, status=500)
 
         return JsonResponse({"error": "Invalid input"}, status=400)
 
@@ -200,60 +261,3 @@ def user_logout(request):
 
 
 
-# Convert the image to grayscale and preprocess it for OCR
-# gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-# blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-# kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
-# sharpened = cv2.filter2D(blurred, -1, kernel)
-# binary = cv2.adaptiveThreshold(sharpened, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-
-# # Use Tesseract to extract text from the image
-# custom_config = r'--oem 3 --psm 6'
-# extracted_text = pytesseract.image_to_string(binary, config=custom_config)
-
-'''
-    url = "https://api.ocr.space/parse/image"
-    payloads = [
-        {
-            "apikey": "K85352834688957",  
-            "language": "eng",
-        },
-        {
-            "apikey": "K86276895488957", 
-            "language": "eng",
-        },
-    ]
-    payload = payloads[0]
-    files = {"file": image}
-    response = requests.post(url, data=payload, files=files)
-    results = response.json()
-
-    if results["IsErroredOnProcessing"]:
-        return JsonResponse(
-            {
-                "error": "Image size exceeds the maximum permissible file size limit of 1024 KB"
-            },
-            status=400,
-        )
-    elif (
-        results
-        == "For this API KEY only 300 concurrent connections at the same time allowed. Contact support if you need more."
-    ):
-        payloads = payloads[1]
-        response = requests.post(url, data=payload, files=files)
-        results = response.json()
-        
-        if results["IsErroredOnProcessing"]:
-            return JsonResponse(
-                {
-                    "error": "Image size exceeds the maximum permissible file size limit of 1024 KB"
-                },
-                status=400,
-            )
-        elif results == "For this API KEY only 300 concurrent connections at the same time allowed. Contact support if you need more.":
-            return JsonResponse(
-                {"error": "Image parsing is down... Try again after some time"}, status=400
-            )
-
-    # Generate LLM analysis
-'''
